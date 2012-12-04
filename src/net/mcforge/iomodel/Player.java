@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Random;
 
 import net.mcforge.API.ClassicExtension;
 
@@ -33,6 +34,8 @@ import net.mcforge.API.player.PlayerKickedEvent;
 import net.mcforge.chat.ChatColor;
 import net.mcforge.chat.Messages;
 import net.mcforge.groups.Group;
+import net.mcforge.iomodel.bot.Vector3;
+import net.mcforge.iomodel.bot.Waypoint;
 import net.mcforge.networking.ClientType;
 import net.mcforge.networking.IOClient;
 import net.mcforge.networking.packets.Packet;
@@ -958,8 +961,26 @@ public class Player extends IOClient implements CommandExecutor {
         chat.serverBroadcast(this.username + " has joined the server.");
         updateAllLists(); //Update me in your list
         isLoggedin = true;
+        int testx = getLevel().spawnx, testy = getLevel().spawny, testz = getLevel().spawnz;
+        final Random RANDOM = new Random();
+        int desx = 0, desy = 0, desz = 0;
+        while (!getLevel().getTile(desx, desy, desz).canWalkThrough()) {
+            desx = RANDOM.nextInt(getLevel().width);
+            desy = RANDOM.nextInt(getLevel().height);
+            desz = RANDOM.nextInt(getLevel().depth);
+        }
+        while (getLevel().getTile(desx, desy - 1, desz).canWalkThrough())
+            desy--;
+        
+        System.out.println("Startx: " + testx + " Starty: " + testy + " Startz: " + testz);
+        System.out.println("Desx: " + desx + " Desy: " + desy + " Desz: " + desz);
+        
+        Waypoint wp = new Waypoint(getLevel(), desx, desy, desz);
+        for (Vector3 pos : wp.getMoves(testx, testy, testz)) {
+            Player.GlobalBlockChange(pos.getX(), pos.getY(), pos.getZ(), Block.getBlock("White"), getLevel(), getServer());
+        }
     }
-
+    
     private void loadExtraData() {
         if (this.hasValue("mcf_prefix"))
             this.prefix = this.getValue("mcf_prefix");
@@ -1135,6 +1156,17 @@ public class Player extends IOClient implements CommandExecutor {
             if (p.level == l)
                 sb.Write(p, s, X, Y, Z, block.getVisibleBlock());
         }
+    }
+    
+    /**
+     * Send a block to this player
+     * @param X The X coord of the block
+     * @param Y The Y coord of the block
+     * @param Z The Z coord of the block
+     * @param block The block to send
+     */
+    public static void GlobalBlockChange(int x2, int y2, int z2, Block block2, Level level2, Server server2) {
+        GlobalBlockChange((short)x2, (short)y2, (short)z2, block2, level2, server2);
     }
 
     /**
