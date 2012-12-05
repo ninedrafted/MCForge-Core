@@ -11,6 +11,7 @@ import java.io.IOException;
 
 import net.mcforge.API.io.PacketPrepareEvent;
 import net.mcforge.iomodel.Player;
+import net.mcforge.iomodel.bot.PlayerBot;
 import net.mcforge.networking.IOClient;
 import net.mcforge.networking.packets.Packet;
 import net.mcforge.networking.packets.PacketManager;
@@ -45,6 +46,40 @@ public class GlobalPosUpdate extends Packet {
             finals[2] = (byte)(p.getX() - p.oldX);
             finals[3] = (byte)(p.getY() - p.oldY);
             finals[4] = (byte)(p.getZ() - p.oldZ);
+        }
+        else if (rotUpdate(p)) {
+            finals = new byte[4];
+            finals[0] = (byte)0x0b;
+            finals[1] = p.getID();
+            finals[2] = p.yaw;
+            finals[3] = p.pitch;
+        }
+        else { //PING!
+            finals = new byte[1];
+            finals[0] = (byte)0x01;
+        }
+        return finals;
+    }
+    
+    public byte[] toSend(PlayerBot p) {
+        byte[] finals;
+        if (posUpdate(p) && rotUpdate(p)) {
+            finals = new byte[7];
+            finals[0] = ID;
+            finals[1] = p.getID();
+            finals[2] = (byte)(p.getX() - p.oldx);
+            finals[3] = (byte)(p.getY() - p.oldy);
+            finals[4] = (byte)(p.getZ() - p.oldz);
+            finals[5] = p.yaw;
+            finals[6] = p.pitch;
+        }
+        else if (posUpdate(p)) {
+            finals = new byte[5];
+            finals[0] = (byte)0x0a;
+            finals[1] = p.getID();
+            finals[2] = (byte)(p.getX() - p.oldx);
+            finals[3] = (byte)(p.getY() - p.oldy);
+            finals[4] = (byte)(p.getZ() - p.oldz);
         }
         else if (rotUpdate(p)) {
             finals = new byte[4];
@@ -124,6 +159,14 @@ public class GlobalPosUpdate extends Packet {
     }
     
     public boolean rotUpdate(Player toupdate) {
+        return toupdate.yaw - toupdate.oldyaw != 0 || toupdate.pitch - toupdate.oldpitch != 0;
+    }
+    
+    public boolean posUpdate(PlayerBot toupdate) {
+        return toupdate.getX() - toupdate.oldx != 0 || toupdate.getY() - toupdate.oldy != 0 || toupdate.getZ() - toupdate.oldz != 0;
+    }
+    
+    public boolean rotUpdate(PlayerBot toupdate) {
         return toupdate.yaw - toupdate.oldyaw != 0 || toupdate.pitch - toupdate.oldpitch != 0;
     }
 

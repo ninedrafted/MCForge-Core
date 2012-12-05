@@ -43,7 +43,7 @@ public class Vector3 {
     }
     
     public int getHashCode() {
-        return x + z * 500 + y * 500 * 500;
+        return new String("" + x + ":" + y + ":" + z).getBytes().hashCode();
     }
     
     public boolean equals(Object obj) {

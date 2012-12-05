@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 
 import net.mcforge.API.io.PacketPrepareEvent;
 import net.mcforge.iomodel.Player;
+import net.mcforge.iomodel.bot.PlayerBot;
 import net.mcforge.networking.IOClient;
 import net.mcforge.networking.packets.Packet;
 import net.mcforge.networking.packets.PacketManager;
@@ -29,14 +30,22 @@ public class TP extends Packet {
     }
     
     public byte[] toSend(Player toteleport) {
+        return toSend(toteleport.getX(), toteleport.getY(), toteleport.getZ(), toteleport.getID(), toteleport.yaw, toteleport.pitch);
+    }
+    
+    public byte[] toSend(PlayerBot toteleport) {
+        return toSend(toteleport.getX(), toteleport.getY(), toteleport.getZ(), toteleport.getID(), toteleport.yaw, toteleport.pitch);
+    }
+    
+    public byte[] toSend(short x, short y, short z, byte id, byte yaw, byte pitch) {
         ByteBuffer bb = ByteBuffer.allocate(10);
         bb.put(ID);
-        bb.put(toteleport.getID());
-        bb.putShort(toteleport.getX());
-        bb.putShort(toteleport.getY());
-        bb.putShort(toteleport.getZ());
-        bb.put(toteleport.yaw);
-        bb.put(toteleport.pitch);
+        bb.put(id);
+        bb.putShort(x);
+        bb.putShort(y);
+        bb.putShort(z);
+        bb.put(yaw);
+        bb.put(pitch);
         return bb.array();
     }
 

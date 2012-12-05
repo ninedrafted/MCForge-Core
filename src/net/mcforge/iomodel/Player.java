@@ -34,6 +34,7 @@ import net.mcforge.API.player.PlayerKickedEvent;
 import net.mcforge.chat.ChatColor;
 import net.mcforge.chat.Messages;
 import net.mcforge.groups.Group;
+import net.mcforge.iomodel.bot.PlayerBot;
 import net.mcforge.iomodel.bot.Vector3;
 import net.mcforge.iomodel.bot.Waypoint;
 import net.mcforge.networking.ClientType;
@@ -961,24 +962,12 @@ public class Player extends IOClient implements CommandExecutor {
         chat.serverBroadcast(this.username + " has joined the server.");
         updateAllLists(); //Update me in your list
         isLoggedin = true;
-        int testx = getLevel().spawnx, testy = getLevel().spawny, testz = getLevel().spawnz;
-        final Random RANDOM = new Random();
-        int desx = 0, desy = 0, desz = 0;
-        while (!getLevel().getTile(desx, desy, desz).canWalkThrough()) {
-            desx = RANDOM.nextInt(getLevel().width);
-            desy = RANDOM.nextInt(getLevel().height);
-            desz = RANDOM.nextInt(getLevel().depth);
-        }
-        while (getLevel().getTile(desx, desy - 1, desz).canWalkThrough())
-            desy--;
-        
-        System.out.println("Startx: " + testx + " Starty: " + testy + " Startz: " + testz);
-        System.out.println("Desx: " + desx + " Desy: " + desy + " Desz: " + desz);
-        
-        Waypoint wp = new Waypoint(getLevel(), desx, desy, desz);
-        for (Vector3 pos : wp.getMoves(testx, testy, testz)) {
-            Player.GlobalBlockChange(pos.getX(), pos.getY(), pos.getZ(), Block.getBlock("White"), getLevel(), getServer());
-        }
+        PlayerBot pb = new PlayerBot(getServer(), getLevel(), "bob");
+        pb.setX((short)(level.spawnx * 32));
+        pb.setY((short)(level.spawny * 32));
+        pb.setZ((short)(level.spawnz * 32));
+        pb.spawn();
+        getServer().Add(pb);
     }
     
     private void loadExtraData() {
@@ -1298,6 +1287,14 @@ public class Player extends IOClient implements CommandExecutor {
         if (this.hasExtension("ExtPlayer") && p.client == ClientType.Extend_Classic)
             pm.getPacket((byte)0x39).Write(this, server, p);
         seeable.add(p);
+    }
+    
+    public void spawnBot(PlayerBot p) {
+        pm.getPacket((byte)0x07).Write(this, server, p);
+    }
+    
+    public void despawnBot(PlayerBot p) {
+        
     }
 
     /**

@@ -14,6 +14,7 @@ import java.io.UnsupportedEncodingException;
 
 import net.mcforge.API.io.PacketPrepareEvent;
 import net.mcforge.iomodel.Player;
+import net.mcforge.iomodel.bot.PlayerBot;
 import net.mcforge.networking.IOClient;
 import net.mcforge.networking.packets.Packet;
 import net.mcforge.networking.packets.PacketManager;
@@ -48,20 +49,43 @@ public class SpawnPlayer extends Packet {
         else
             return;
         try {
-            Player spawn = (Player)parma[0];
+            byte pID, yaw, pitch;
+            String name;
+            short x, y, z;
+            if (parma[0] instanceof Player) {
+                Player spawn = (Player)parma[0];
+                pID = (spawn == player) ? (byte)0xFF : spawn.getID();
+                yaw = spawn.yaw;
+                pitch = spawn.pitch;
+                name = (spawn.isShowingPrefix() ? spawn.getDisplayName() : (spawn.isUsingCustomNick() && spawn.getCustomName().startsWith("&") ? "" : spawn.getDisplayColor().toString()) + (spawn.isUsingCustomNick() ? spawn.getCustomName() : spawn.username));
+                x = spawn.getX();
+                y = spawn.getY();
+                z = spawn.getZ();
+            }
+            else if (parma[0] instanceof PlayerBot) {
+                PlayerBot spawn = (PlayerBot)parma[0];
+                pID = spawn.getID();
+                yaw = spawn.yaw;
+                pitch = spawn.pitch;
+                name = spawn.getName();
+                x = spawn.getX();
+                y = spawn.getY();
+                z = spawn.getZ();
+            }
+            else
+                return;
             byte[] send = new byte[74];
             send[0] = ID;
-            send[1] = (spawn == player) ? (byte)0xFF : spawn.getID();
-            String name = (spawn.isShowingPrefix() ? spawn.getDisplayName() : (spawn.isUsingCustomNick() && spawn.getCustomName().startsWith("&") ? "" : spawn.getDisplayColor().toString()) + (spawn.isUsingCustomNick() ? spawn.getCustomName() : spawn.username));
+            send[1] = pID; 
             while (name.length() < 64)
                 name += " ";
             byte[] nameb = name.getBytes("US-ASCII");
             System.arraycopy(nameb, 0, send, 2, 64);
-            System.arraycopy(HTNO(spawn.getX()), 0, send, 66, 2);
-            System.arraycopy(HTNO(spawn.getY()), 0, send, 68, 2);
-            System.arraycopy(HTNO(spawn.getZ()), 0, send, 70, 2);
-            send[72] = spawn.yaw;
-            send[73] = spawn.pitch;
+            System.arraycopy(HTNO(x), 0, send, 66, 2);
+            System.arraycopy(HTNO(y), 0, send, 68, 2);
+            System.arraycopy(HTNO(z), 0, send, 70, 2);
+            send[72] = yaw;
+            send[73] = pitch;
             player.writeData(send);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();

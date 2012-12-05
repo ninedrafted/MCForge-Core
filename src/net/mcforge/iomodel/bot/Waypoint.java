@@ -35,6 +35,8 @@ public class Waypoint {
         int ydownleft = level.posToInt(x3, y2, z1), ydownright = level.posToInt(x3, y2, z2);
         
         int min = up1;
+        if (up1 == -1)
+            min = down1;
         if (down1 != -1 && ((grid[down1] < grid[min] && grid[down1] != -1) || (grid[min] == -1 && grid[down1] != -1)))
             min = down1;
         if (left1 != -1 && ((grid[left1] < grid[min] && grid[left1] != -1) || (grid[min] == -1 && grid[left1] != -1)))
@@ -71,23 +73,33 @@ public class Waypoint {
             int[] pos = getNextPos(startx, starty, startz);
             Vector3 newpos = new Vector3(pos[0], pos[1], pos[2]);
             if (temp.contains(newpos)) {
-                System.out.println("I can't continue..");
+                System.out.println(newpos.getX() + ":" + newpos.getY() + ":" + newpos.getZ() + " ALREADY EXISTS!");
+                System.out.println("The end is " + x + ":" + y + ":" + z);
                 break;
             }
             temp.add(newpos);
             startx = pos[0];
             starty = pos[1];
             startz = pos[2];
-        }
+      }
         return temp;
+    }
+    
+    public void dispose() {
+        grid = null;
     }
     
     public static int[] calculateGrid(Level level, int x, int y, int z) {
         int[] grid = new int[level.getLength()];
         for (int i = 0; i < grid.length; i++) {
             int[] pos = IntToPos(i, level);
-            if (level.getTile(pos[0], pos[1], pos[2]).canWalkThrough())
+            if (level.getTile(pos[0], pos[1], pos[2]).canWalkThrough()) {
                 grid[i] = Math.abs(pos[0] - x) + Math.abs(pos[1] - y) + Math.abs(pos[2] - z);
+                if (level.getTile(pos[0], pos[1] - 1, pos[2]).canWalkThrough())
+                    grid[i]++;;
+                if (level.getTile(pos[0], pos[1] + 1, pos[2]).canWalkThrough())
+                    grid[i]--;
+            }
             else
                 grid[i] = -1;
         }
