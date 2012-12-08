@@ -67,4 +67,6 @@ public abstract class Bot implements Tick, CommandExecutor {
     public void setZ(short z) {
         this.z = z;
     }
+    
+    public abstract void dispose();
 }

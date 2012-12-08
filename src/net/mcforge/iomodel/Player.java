@@ -34,6 +34,7 @@ import net.mcforge.API.player.PlayerKickedEvent;
 import net.mcforge.chat.ChatColor;
 import net.mcforge.chat.Messages;
 import net.mcforge.groups.Group;
+import net.mcforge.iomodel.bot.Bot;
 import net.mcforge.iomodel.bot.PlayerBot;
 import net.mcforge.iomodel.bot.Vector3;
 import net.mcforge.iomodel.bot.Waypoint;
@@ -656,6 +657,11 @@ public class Player extends IOClient implements CommandExecutor {
             p.spawnPlayer(this);
             spawnPlayer(p);
         }
+        for (Bot b : getServer().getBots()) {
+            if (b instanceof PlayerBot) {
+                spawnBot((PlayerBot)b);
+            }
+        }
     }
 
     /**
@@ -962,12 +968,6 @@ public class Player extends IOClient implements CommandExecutor {
         chat.serverBroadcast(this.username + " has joined the server.");
         updateAllLists(); //Update me in your list
         isLoggedin = true;
-        PlayerBot pb = new PlayerBot(getServer(), getLevel(), "bob");
-        pb.setX((short)(level.spawnx * 32));
-        pb.setY((short)(level.spawny * 32));
-        pb.setZ((short)(level.spawnz * 32));
-        pb.spawn();
-        getServer().Add(pb);
     }
     
     private void loadExtraData() {

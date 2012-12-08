@@ -18,6 +18,7 @@ public class PlayerBot extends Bot {
     private Waypoint dest;
     private byte ID;
     private Thread run;
+    private boolean RUNIT;
     private ArrayList<Vector3> moves = new ArrayList<Vector3>();
     public int index, oldx, oldy, oldz;
     
@@ -25,6 +26,7 @@ public class PlayerBot extends Bot {
     //private List<Waypoint> packet_queue = Collections.synchronizedList(new LinkedList<Waypoint>());
     public byte oldyaw;
     public byte oldpitch;
+    int startx, starty, startz;
     
     public PlayerBot(Server server, Level level, String name) {
         super(server, level);
@@ -42,16 +44,26 @@ public class PlayerBot extends Bot {
         for (Player p : getServer().players) {
             p.spawnBot(this);
         }
+        RUNIT = true;
         run.start();
     }
     
     public void despawn() {
-        
+        for (Player p : getServer().players) {
+            p.despawnBot(this);
+        }
     }
     
+    @Override
     public void dispose() {
         dest = null;
         moves.clear();
+        RUNIT = false;
+        try {
+            run.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         despawn();
     }
     
@@ -129,7 +141,7 @@ public class PlayerBot extends Bot {
         
         @Override
         public void run() {
-            while (true) {
+            while (RUNIT) {
                 if (dest == null) {
                     final Random RANDOM = new Random();
                     int desx = 0, desy = 0, desz = 0;
@@ -143,7 +155,11 @@ public class PlayerBot extends Bot {
                     desy++;
                     System.out.println("Desx: " + desx + " Desy: " + desy + " Desz: " + desz);
                     dest = new Waypoint(getLevel(), desx, desy, desz);
-                    moves = dest.getMoves(getX() / 32, getY() / 32, getZ() / 32);
+                    startx = getX() / 32;
+                    starty = getY() / 32;
+                    startz = getZ() / 32;
+                    System.out.println("Starting at: " + startx + ":" + starty + ":" + startz);
+                    moves = dest.getMoves(startx, starty, startz);
                     Player.GlobalBlockChange(desx, desy, desz, Block.getBlock("White"), getLevel(), getServer());
                 }
                 if (index < moves.size()) {
@@ -160,11 +176,6 @@ public class PlayerBot extends Bot {
                         e.printStackTrace();
                     }
                     index++;
-                    ArrayList<Vector3> temp = dest.getMoves(getX() / 32, getY() / 32, getZ() / 32);
-                    if (!temp.equals(moves)) {
-                        moves = temp;
-                        index = 0;
-                    }
                 }
                 else {
                     moves.clear();
@@ -172,11 +183,19 @@ public class PlayerBot extends Bot {
                     index = 0;
                 }
                 try {
-                    Thread.sleep(300);
+                    Thread.sleep(100);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
+        }
+        
+        private boolean areEqual(ArrayList<Vector3> list1, ArrayList<Vector3> list2, int startindex) {
+            for (int i = startindex; i < list2.size() && i < list1.size(); i++) {
+                if (!list1.get(i).equals(list2.get(i)))
+                    return false;
+            }
+            return true;
         }
     }
 }

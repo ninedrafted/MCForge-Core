@@ -24,6 +24,8 @@ import net.mcforge.API.server.ServerStartedEvent;
 import net.mcforge.chat.Messages;
 import net.mcforge.groups.Group;
 import net.mcforge.iomodel.Player;
+import net.mcforge.iomodel.bot.Bot;
+import net.mcforge.iomodel.bot.PlayerBot;
 import net.mcforge.networking.packets.PacketManager;
 import net.mcforge.sql.ISQL;
 import net.mcforge.sql.MySQL;
@@ -60,6 +62,7 @@ public final class Server implements LogInterface {
     private ISQL sql;
     private Console console;
     private Messages m;
+    private ArrayList<Bot> bots = new ArrayList<Bot>();
     public static final String[] devs = new String []{"Dmitchell", "501st_commander", "Lavoaster", "Alem_Zupa", "bemacized", "Shade2010", "edh649", "hypereddie10", "Gamemakergm", "Serado", "Wouto1997", "cazzar", "givo"};
     /**
      * The name for currency on this server.
@@ -81,7 +84,7 @@ public final class Server implements LogInterface {
      * Weather the server is running or not
      */
     public boolean Running;
-    
+
     /**
      * Weather sand will use the new physics or old.
      */
@@ -100,7 +103,7 @@ public final class Server implements LogInterface {
     public String Name;
     /**
      * The name of the server that will appear on the WoM list
-    */
+     */
     public String altName;
     /**
      * The description of the server
@@ -168,7 +171,7 @@ public final class Server implements LogInterface {
     public final CommandHandler getCommandHandler() {
         return ch;
     }
-    
+
     /**
      * Get the default class loader that is used to load
      * plugins and commands, write serialized objects, ect..
@@ -186,7 +189,7 @@ public final class Server implements LogInterface {
     public final PluginHandler getPluginHandler() {
         return ph;
     }
-    
+
     /**
      * Get the console object that is controlling the server
      * @return
@@ -212,7 +215,7 @@ public final class Server implements LogInterface {
     public final Properties getSystemProperties() {
         return p;
     }
-    
+
     /**
      * Get the object that controls the updating of plugins
      * and other {@link Updatable} objects.
@@ -222,7 +225,7 @@ public final class Server implements LogInterface {
     public final UpdateService getUpdateService() {
         return us;
     }
-    
+
     /**
      * Gets the class that handles messages
      * @return The Message class
@@ -251,7 +254,7 @@ public final class Server implements LogInterface {
         this.MOTD = MOTD;
         tick = new Ticker();
     }
-    
+
     /**
      * Get the salt.
      * <b>This method can only be called by heartbeaters and the Connect Packet.
@@ -279,7 +282,7 @@ public final class Server implements LogInterface {
         catch (ArrayIndexOutOfBoundsException e3) { }
         throw new IllegalAccessException("The salt can only be accessed by the heartbeaters and the Connect packet!");
     }
-    
+
     /**
      * Load the server properties such as the server {@link Server#Name}.
      * These properties will always load from the {@link Server#configpath}
@@ -297,7 +300,7 @@ public final class Server implements LogInterface {
         newSand = getSystemProperties().getBool("Advanced-Sand");
         CurrencyName = getSystemProperties().getValue("Money-Name");
     }
-    
+
     /**
      * Start the logger.
      * The logger can be started before the server is started, but
@@ -324,7 +327,7 @@ public final class Server implements LogInterface {
             e.printStackTrace();
         }
     }
-    
+
     /**
      * Start the SQL service
      * @param set
@@ -364,14 +367,14 @@ public final class Server implements LogInterface {
         sql.ExecuteQuery(commands);
         Log("SQL all set.");
     }
-    
+
     /**
      * Start the SQL service
      */
     public void startSQL() {
         startSQL(null);
     }
-    
+
     /**
      * Start the event system
      */
@@ -379,12 +382,12 @@ public final class Server implements LogInterface {
         if (es == null)
             es = new EventSystem(this);
     }
-    
+
     public void startTicker() {
         if (!tick.isAlive())
             tick.start();
     }
-    
+
     /**
      * Start the server
      */
@@ -446,8 +449,14 @@ public final class Server implements LogInterface {
         Log("Server url can be found in 'url.txt'");
         ServerStartedEvent sse = new ServerStartedEvent(this);
         es.callEvent(sse);
+        PlayerBot p = new PlayerBot(this, lm.findLevel(MainLevel), "bob");
+        p.setX((short)(0.5 + lm.findLevel(MainLevel).spawnx * 32));
+        p.setY((short)((lm.findLevel(MainLevel).spawny + 1.5) * 32));
+        p.setZ((short)(0.5 + lm.findLevel(MainLevel).spawnz * 32));
+        p.spawn();
+        addBot(p);
     }
-    
+
     /**
      * Send a message to all the players on this server
      * @param message
@@ -456,7 +465,24 @@ public final class Server implements LogInterface {
     public void sendGlobalMessage(String message) {
         m.serverBroadcast(message);
     }
-    
+
+    public ArrayList<Bot> getBots() {
+        return bots;
+    }
+
+    public void addBot(Bot b) {
+        if (!bots.contains(b))
+            bots.add(b);
+        ticks.add(b);
+    }
+
+    public void removeBot(Bot b) {
+        if (bots.contains(b))
+            bots.remove(b);
+        ticks.remove(b);
+        b.dispose();
+    }
+
     /**
      * Send a message to all players on the level <b>world</b>
      * @param message
@@ -467,7 +493,7 @@ public final class Server implements LogInterface {
     public void sendWorldMessage(String message, Level world) {
         sendWorldMessage(message, world.name);
     }
-    
+
     /**
      * Send a message to all the players on the level with the name <b>world</b>
      * @param message
@@ -478,8 +504,8 @@ public final class Server implements LogInterface {
     public void sendWorldMessage(String message, String world) {
         m.worldBroadcast(message, world);
     }
-        
-    
+
+
     /**
      * Search for a player based on the name given.
      * A part of the name will be given and will find
@@ -563,7 +589,7 @@ public final class Server implements LogInterface {
         Properties.reset();
         pm.StopReading();
     }
-    
+
     /**
      * Log something to the logs
      * @param log
@@ -571,7 +597,7 @@ public final class Server implements LogInterface {
     public void Log(String log) {
         logger.Log(log);
     }
-    
+
     /**
      * Get the logger object
      * @return
@@ -592,7 +618,7 @@ public final class Server implements LogInterface {
                 ticks.add(t);
         }
     }
-    
+
     /**
      * Remove a task from the Tick list
      * @param t
@@ -627,7 +653,7 @@ public final class Server implements LogInterface {
             }
         }
     }
-    
+
     @Override
     public void onLog(String message) {
         //TODO ..colors?
@@ -643,10 +669,10 @@ public final class Server implements LogInterface {
         System.out.println(message);
         log.log(java.util.logging.Level.SEVERE, message);
     }
-    
+
     /**
      * Calls {@link Server#findPlayer(String)}
-    */
+     */
     public Player getPlayer(String name) {
         return findPlayer(name);
     }
