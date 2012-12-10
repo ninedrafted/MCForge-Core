@@ -1389,6 +1389,14 @@ public class Player extends IOClient implements CommandExecutor {
                     break;
                 }
             }
+            for (Bot b : pm.server.getBots()) {
+                if (!(b instanceof PlayerBot))
+                    continue;
+                if (((PlayerBot)b).getID() == i) {
+                    found = false;
+                    break;
+                }
+            }
             if (found) {
                 toreturn = (byte)i;
                 break;

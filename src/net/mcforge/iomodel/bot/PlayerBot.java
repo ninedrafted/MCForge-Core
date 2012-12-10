@@ -21,8 +21,6 @@ public class PlayerBot extends Bot {
     private boolean RUNIT;
     private ArrayList<Vector3> moves = new ArrayList<Vector3>();
     public int index, oldx, oldy, oldz;
-    
-    public byte yaw, pitch;
     //private List<Waypoint> packet_queue = Collections.synchronizedList(new LinkedList<Waypoint>());
     public byte oldyaw;
     public byte oldpitch;
@@ -164,12 +162,15 @@ public class PlayerBot extends Bot {
                 }
                 if (index < moves.size()) {
                     int y = moves.get(index).getY();
-                    while (getLevel().getTile(moves.get(index).getX(), y, moves.get(index).getZ()).canWalkThrough())
-                        y--;
-                    y++;
+                    //while (getLevel().getTile(moves.get(index).getX(), y, moves.get(index).getZ()).canWalkThrough())
+                    //    y--;
+                    //y++;
+                    int oldx = getX();
+                    int oldz = getZ();
                     setX((short)((0.5 + moves.get(index).getX()) * 32));
                     setY((short)((y + 1.5) * 32));
                     setZ((short)((moves.get(index).getZ() + 0.5) * 32));
+                    fixYaw(getX(), getY(), oldx, oldz);
                     try {
                         updatePos();
                     } catch (IOException e) {
@@ -188,14 +189,6 @@ public class PlayerBot extends Bot {
                     e.printStackTrace();
                 }
             }
-        }
-        
-        private boolean areEqual(ArrayList<Vector3> list1, ArrayList<Vector3> list2, int startindex) {
-            for (int i = startindex; i < list2.size() && i < list1.size(); i++) {
-                if (!list1.get(i).equals(list2.get(i)))
-                    return false;
-            }
-            return true;
         }
     }
 }

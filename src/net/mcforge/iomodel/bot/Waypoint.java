@@ -135,7 +135,9 @@ public class Waypoint {
             if (level.getTile(pos[0], pos[1], pos[2]).canWalkThrough()) {
                 grid[i] = Math.abs(pos[0] - x) + Math.abs(pos[2] - z);
                 if (level.getTile(pos[0], pos[1] - 1, pos[2]).canWalkThrough())
-                    grid[i] += Math.abs(pos[1] - y) + getDepth(pos[0], pos[1], pos[2], level);
+                    grid[i] += Math.abs(pos[1] - y) + (getDepth(pos[0], pos[1], pos[2], level) * 2);
+                if (!level.getTile(pos[0] + 1, pos[1], pos[2]).canWalkThrough() || !level.getTile(pos[0] - 1, pos[1], pos[2]).canWalkThrough() || !level.getTile(pos[0], pos[1], pos[2] + 1).canWalkThrough() || !level.getTile(pos[0], pos[1], pos[2]).canWalkThrough())
+                    grid[i] += 2;
                 if (!level.getTile(pos[0], pos[1] + 1, pos[2]).canWalkThrough())
                     grid[i] = -1;
             }

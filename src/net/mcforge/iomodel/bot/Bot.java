@@ -13,6 +13,8 @@ public abstract class Bot implements Tick, CommandExecutor {
     
     protected short x, y, z;
     
+    public byte yaw, pitch;
+    
     public Bot(Server server, Level level) {
         this.level = level;
         this.server = server;
@@ -66,6 +68,15 @@ public abstract class Bot implements Tick, CommandExecutor {
      */
     public void setZ(short z) {
         this.z = z;
+    }
+    
+    public void fixYaw(int newx, int newz, int oldx, int oldz) {
+        float xDistance = newx - oldx;
+        float zDistance = newz - oldz;
+        float xzDistance = (float)Math.sqrt(xDistance * xDistance + zDistance * zDistance);
+        //System.out.println(xzDistance + ":" + (xzDistance > 0.05f));
+        if (xzDistance > 0.05f)
+            yaw = (byte)((float)Math.atan2(zDistance, xDistance) * 180.0F / 3.1415927F - 90.0F);
     }
     
     public abstract void dispose();
