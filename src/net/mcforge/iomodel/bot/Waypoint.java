@@ -56,19 +56,26 @@ public class Waypoint {
 
         return IntToPos(min, level);
     }
+    
+    public boolean nextMoveValid(int oldx, int oldy, int oldz, int startx, int starty, int startz) {
+        if (level.getTile(oldx, oldy, oldz).getVisibleBlock() == 0)
+            return level.getTile(startx, starty - 1, startz).getVisibleBlock() != 0;
+        return true;
+    }
 
     public ArrayList<Vector3> getMoves(int startx, int starty, int startz) {
         int oldx = startx;
         int oldy = starty;
         int oldz = startz;
         boolean triedagain = false;
+        int tries = 100;
         ArrayList<Vector3> temp = new ArrayList<Vector3>();
-        while (startx != x || starty != y || startz != z) {
+        while ((startx != x || starty != y || startz != z) && tries > 0) {
             int[] pos = getNextPos(startx, starty, startz);
             Vector3 newpos = new Vector3(pos[0], pos[1], pos[2]);
             if (newpos.getX() == oldx && newpos.getY() == oldy && newpos.getZ() == z && triedagain)
                 break;
-            if (temp.contains(newpos)) {
+            if (temp.contains(newpos) || nextMoveValid(startx, starty, startz, pos[0], pos[1], pos[2])) {
                 int i = level.posToInt(pos[0], pos[1], pos[2]);
                 grid[i] = -1;
                 startx = oldx;
@@ -76,6 +83,7 @@ public class Waypoint {
                 startz = oldz;
                 temp.clear();
                 triedagain = true;
+                tries--;
                 continue;
             }
             try {
