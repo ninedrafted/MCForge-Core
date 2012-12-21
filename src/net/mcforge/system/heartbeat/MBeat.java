@@ -24,9 +24,9 @@ public class MBeat extends Heart {
                     "&public=" + server.Public +
                     "&version=7" +
                     "&salt=" + server.getSalt() +
-                    "&users=" + server.players.size();
+                    "&users=" + server.getPlayers().size();
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            e.printStackTrace(server.getLoggerOutput());
             return "";
         }
     }
@@ -42,7 +42,7 @@ public class MBeat extends Heart {
                     url = line;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            e.printStackTrace(server.getLoggerOutput());
         } finally {
             rdr.close();
         }

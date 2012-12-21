@@ -71,7 +71,7 @@ public class LevelHandler {
             try {
                 level.save();
             } catch (IOException e) {
-                e.printStackTrace();
+                e.printStackTrace(server.getLoggerOutput());
             }
         }
     }
@@ -108,9 +108,9 @@ public class LevelHandler {
      */
     public ArrayList<Player> getPlayers(Level level) {
         ArrayList<Player> temp = new ArrayList<Player>();
-        for (int i = 0; i < server.players.size(); i++)
-            if (server.players.get(i).getLevel() == level)
-                temp.add(server.players.get(i));
+        for (int i = 0; i < server.getPlayers().size(); i++)
+            if (server.getPlayers().get(i).getLevel() == level)
+                temp.add(server.getPlayers().get(i));
         return temp;
     }
     /**
@@ -211,7 +211,7 @@ public class LevelHandler {
         try {
             level.unload(server, save);
         } catch (IOException e) {
-            e.printStackTrace();
+            e.printStackTrace(server.getLoggerOutput());
         }
         levels.remove(level);
         return true;
@@ -231,7 +231,7 @@ public class LevelHandler {
                     try {
                         levels.get(i).save();
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        e.printStackTrace(server.getLoggerOutput());
                     }
                 }
             }

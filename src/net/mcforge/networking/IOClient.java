@@ -9,6 +9,8 @@ package net.mcforge.networking;
 
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -18,15 +20,16 @@ import java.util.List;
 import net.mcforge.API.io.PacketReceivedEvent;
 import net.mcforge.API.io.PacketSentEvent;
 import net.mcforge.iomodel.Player;
+import net.mcforge.networking.packets.DynamicPacket;
 import net.mcforge.networking.packets.Packet;
 import net.mcforge.networking.packets.PacketManager;
 
 public class IOClient {
     protected Socket client;
 
-    protected PrintStream writer;
+    protected OutputStream writer;
 
-    protected DataInputStream reader;
+    protected InputStream reader;
 
     protected Thread readerthread;
     
@@ -94,6 +97,8 @@ public class IOClient {
             e.printStackTrace();
         }
         this.address = client.getInetAddress();
+
+        Listen();
     }
 
     /**
@@ -108,7 +113,6 @@ public class IOClient {
         readerthread.start();
         writerthread = new Writer();
         writerthread.start();
-        pm.server.Log("Listening..");
     }
 
     /**
@@ -117,11 +121,18 @@ public class IOClient {
     public void closeConnection() {
         try {
             pm.server.Log("Closing connection");
+            connected = false;
+            try {
+                writerthread.join(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             writer.close();
             reader.close();
             client.close();
             connected = false;
             packet_queue.clear();
+            pm.disconnect(this);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -143,6 +154,22 @@ public class IOClient {
             pm.server.getEventSystem().callEvent(event);
         }
         packet_queue.add(data);
+    }
+    
+    public OutputStream getOutputStream() {
+        return writer;
+    }
+    
+    public void setOutputStream(OutputStream out) {
+        this.writer = out;
+    }
+    
+    public InputStream getInputStream() {
+        return reader;
+    }
+    
+    public void setInputStream(InputStream in) {
+        this.reader = in;
     }
 
     protected boolean sendNextPacket() throws IOException {
@@ -182,7 +209,12 @@ public class IOClient {
             readID = Thread.currentThread().getId();
             while (pm.server.Running && connected) {
                 try {
-                    byte opCode = reader.readByte();
+                    int readvalue = (byte)reader.read();
+                    if (readvalue == -1) {
+                        closeConnection();
+                        break;
+                    }
+                    byte opCode = (byte)readvalue;
                     PacketReceivedEvent event = new PacketReceivedEvent(client, pm.server, reader, opCode);
                     pm.server.getEventSystem().callEvent(event);
                     if (event.isCancelled())
@@ -193,13 +225,19 @@ public class IOClient {
                         pm.server.Log("How do..?");
                         continue;
                     }
-                    byte[] message = new byte[packet.length];
-                    reader.read(message);
-                    if (message.length < packet.length) {
-                        pm.server.Log("Bad packet..");
-                        continue;
+                    if (!packet.dynamicSize() && !(packet instanceof DynamicPacket)) {
+                        byte[] message = new byte[packet.length];
+                        reader.read(message);
+                        if (message.length < packet.length && !packet.dynamicSize()) {
+                            pm.server.Log("Bad packet..");
+                            continue;
+                        }
+                        packet.Handle(message, pm.server, client);
                     }
-                    packet.Handle(message, pm.server, (Player)client);
+                    else if (packet instanceof DynamicPacket)
+                        ((DynamicPacket) packet).handle(pm.server, client, reader);
+                    else
+                        throw new RuntimeException("Packet " + packet.ID + " (" + packet.name + ") has a dynamicSize, but is not using a DynamicPacket!");
                 } catch (IOException e) {
                     closeConnection();
                     break;

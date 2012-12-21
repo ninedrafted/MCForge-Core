@@ -37,9 +37,9 @@ import net.mcforge.networking.ClientType;
 import net.mcforge.networking.IOClient;
 import net.mcforge.networking.packets.Packet;
 import net.mcforge.networking.packets.PacketManager;
-import net.mcforge.networking.packets.minecraft.GlobalPosUpdate;
-import net.mcforge.networking.packets.minecraft.SetBlock;
-import net.mcforge.networking.packets.minecraft.TP;
+import net.mcforge.networking.packets.classicminecraft.GlobalPosUpdate;
+import net.mcforge.networking.packets.classicminecraft.SetBlock;
+import net.mcforge.networking.packets.classicminecraft.TP;
 import net.mcforge.server.Server;
 import net.mcforge.server.Tick;
 import net.mcforge.sql.MySQL;
@@ -142,11 +142,6 @@ public class Player extends IOClient implements CommandExecutor {
      */
 
     /**
-     * Local variable referencing to the Server class.
-     */
-    private Server server;
-
-    /**
      * The activity of the player.
      */
     private boolean afk;
@@ -162,11 +157,8 @@ public class Player extends IOClient implements CommandExecutor {
      * Most recent player this player has pm'd with.
      */
     public Player lastCommunication;
-
-    public Player(Socket client, PacketManager pm, Server server) {
-        this(client, pm, (byte) 255, server);
-    }
-    public Player(Socket client, PacketManager pm, byte opCode, Server server) {
+    
+    public Player(Socket client, PacketManager pm) {
         super(client, pm);
         if (digest == null) {
             try {
@@ -175,33 +167,18 @@ public class Player extends IOClient implements CommandExecutor {
                 e1.printStackTrace();
             }
         }
-        this.server = server;
         ID = getFreeID();
-        this.chat = new Messages(pm.server);
-        if (opCode != 255) {
-            Packet packet = pm.getPacket(opCode);
-            if (packet == null) {
-                pm.server.Log("Client sent " + opCode);
-                pm.server.Log("How do..?");
-            } else {
-                byte[] message = new byte[packet.length];
-                try {
-                    if(reader.read(message) != message.length) pm.server.Log("Bad packet: "+opCode);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                packet.Handle(message, pm.server, this);
-            }
-        }
+        this.chat = new Messages(getServer());
 
         afk = false;
-
-        Listen();
-        pm.server.Add(tick);
+        getServer().Add(tick);
     }
-
-
-
+    
+    @Override
+    public Server getServer() {
+        return pm.server;
+    }
+    
     /**
      * Get the name of the client the player is using.
      * Browser/Normal client = Minecraft
@@ -275,7 +252,7 @@ public class Player extends IOClient implements CommandExecutor {
      */
     public void ban(CommandExecutor banner, String reason, boolean kick, boolean banip) {
         PlayerBanRequestEvent pbre = new PlayerBanRequestEvent(this, reason, kick, banner, banip);
-        this.server.getEventSystem().callEvent(pbre);
+        this.getServer().getEventSystem().callEvent(pbre);
         if (kick)
             kick("Banned: " + reason);
     }
@@ -601,7 +578,7 @@ public class Player extends IOClient implements CommandExecutor {
      * In other words, hide this player from all other players
      */
     public void despawn() {
-        for (Player p : getServer().players) {
+        for (Player p : getServer().getPlayers()) {
             if (p.getLevel() != getLevel())
                 continue;
             p.despawn(this);
@@ -613,7 +590,7 @@ public class Player extends IOClient implements CommandExecutor {
      * for this player
      */
     public void completeDespawn() {
-        for (Player p : getServer().players) {
+        for (Player p : getServer().getPlayers()) {
             if (p.getLevel() != getLevel())
                 continue;
             p.despawn(this);
@@ -634,7 +611,7 @@ public class Player extends IOClient implements CommandExecutor {
      * In other words, show this player to all the other players in the same level
      */
     public void spawn() {
-        for (Player p : getServer().players) {
+        for (Player p : getServer().getPlayers()) {
             if (p.getLevel() != getLevel() || p == this)
                 continue;
             p.spawnPlayer(this);
@@ -646,7 +623,7 @@ public class Player extends IOClient implements CommandExecutor {
      * Spawn this player for all players and spawn all players for this player.
      */
     public void completeSpawn() {
-        for (Player p : getServer().players) {
+        for (Player p : getServer().getPlayers()) {
             if (p.getLevel() != getLevel() || p == this)
                 continue;
             p.spawnPlayer(this);
@@ -661,7 +638,7 @@ public class Player extends IOClient implements CommandExecutor {
     public boolean verifyLogin() {
         if (PacketManager.isLocalConnection(getInetAddress()))
             return true;
-        return server.VerifyNames ? mppass.equals(getRealmppass()) : true;
+        return getServer().VerifyNames ? mppass.equals(getRealmppass()) : true;
     }
 
     /**
@@ -671,11 +648,46 @@ public class Player extends IOClient implements CommandExecutor {
      */
     public String getRealmppass() {
         try {
-            digest.update((String.valueOf(server.getSalt()) + username).getBytes());
+            digest.update((String.valueOf(getServer().getSalt()) + username).getBytes());
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
         return new BigInteger(1, digest.digest()).toString(16);
+    }
+    
+    /**
+     * Promote this player to the next highest rank </br>
+     * If the user already has the highest rank, then nothing happens
+     */
+    public void promote() {
+        final Group gg = getGroup();
+        Group lowestabove = null;
+        for (Group g : Group.getGroupList()) {
+            if (g.permissionlevel > gg.permissionlevel) {
+                if (lowestabove == null) { lowestabove = g; }
+                if (lowestabove.permissionlevel > g.permissionlevel) { lowestabove = g; }
+            }
+        }
+        if (lowestabove == null)
+            return;
+        setGroup(lowestabove);
+    }
+    
+    /**
+     * Demote the player to the next lowest rank </br>
+     * If the user already has the lowest rank, then nothing happens
+     */
+    public void demote() {
+        final Group gg = getGroup();
+        Group highestbelow = null;
+        for (Group g : Group.getGroupList()) {
+            if (g.permissionlevel < gg.permissionlevel) {
+                if (highestbelow == null) { highestbelow = g; }
+                if (highestbelow.permissionlevel < g.permissionlevel) { highestbelow = g; }
+            }
+        }
+        if (highestbelow == null) return;
+        setGroup(highestbelow);
     }
 
     public int getMoney() {
@@ -706,7 +718,7 @@ public class Player extends IOClient implements CommandExecutor {
     @SuppressWarnings("unchecked")
     public <T> T getValue(String key) {
         if (!extra.containsKey(key)) {
-            T value = getValue(key, username, server);
+            T value = getValue(key, username, getServer());
             extra.put(key, value);
             return value;
         }
@@ -719,8 +731,8 @@ public class Player extends IOClient implements CommandExecutor {
      *           The name of the data
      * @param username
      *                The username
-     * @param server
-     *              The server the user belongs to
+     * @param getServer()
+     *              The getServer() the user belongs to
      * @return
      *         The data that was found, null if nothing was found or in an error occurred while getting the data.
      */
@@ -786,7 +798,7 @@ public class Player extends IOClient implements CommandExecutor {
         if (extra.containsKey(key))
             return true;
         else
-            return hasValue(key, username, server);
+            return hasValue(key, username, getServer());
     }
     
     /**
@@ -795,8 +807,8 @@ public class Player extends IOClient implements CommandExecutor {
      *           The key
      * @param username
      *                The username
-     * @param server
-     *              The server the user belongs to
+     * @param getServer()
+     *              The getServer() the user belongs to
      * @return
      *        True if the user does have the value, false if he doesn't
      */
@@ -838,13 +850,13 @@ public class Player extends IOClient implements CommandExecutor {
      *              The value
      * @param username
      *                The username to save
-     * @param server
-     *              The server this user belongs to
+     * @param getServer()
+     *              The getServer() this user belongs to
      * @throws SQLException
      *                     If there was a problem executing the SQL statement to update/insert
      *                     the object
      * @throws IOException 
-     *                    If there was a problem writing the object to the SQL server.
+     *                    If there was a problem writing the object to the SQL getServer().
      * @throw NotSerializableException
      *      
      */
@@ -892,7 +904,7 @@ public class Player extends IOClient implements CommandExecutor {
      *                     If there was a problem executing the SQL statement to update/insert
      *                     the object
      * @throws IOException 
-     *                    If there was a problem writing the object to the SQL server.
+     *                    If there was a problem writing the object to the SQL getServer().
      * @throw NotSerializableException
      *                                
      */
@@ -938,8 +950,8 @@ public class Player extends IOClient implements CommandExecutor {
     public void login() throws InterruptedException {
         if (isLoggedin)
             return;
-        for (int i = 0; i < getServer().players.size(); i++) {
-            Player p = getServer().players.get(i);
+        for (int i = 0; i < getServer().getPlayers().size(); i++) {
+            Player p = getServer().getPlayers().get(i);
             if ((username.equals(p.username)) && (!p.equals(this))) {
                 p.kick("Someone logged in as you!");
             }
@@ -947,14 +959,14 @@ public class Player extends IOClient implements CommandExecutor {
         if (Group.getGroup(this) == null)
             setGroup(Group.getDefault());
         SendWelcome();
-        final Level level = pm.server.getLevelHandler().findLevel(pm.server.MainLevel);
+        final Level level = getServer().getLevelHandler().findLevel(getServer().MainLevel);
         if (level == null) {
             kick("The main level hasnt loaded yet!");
             return;
         }
         changeLevel(level, true);
         loadExtraData();
-        pm.server.Log(this.username + " has joined the server.");
+        getServer().Log(this.username + " has joined the server.");
         chat.serverBroadcast(this.username + " has joined the server.");
         updateAllLists(); //Update me in your list
         isLoggedin = true;
@@ -1025,8 +1037,8 @@ public class Player extends IOClient implements CommandExecutor {
      * with the format "yyyy/MM/dd HH:mm:ss"
      * @param username
      *                The user to lookup
-     * @param server
-     *              The server this user belongs to
+     * @param getServer()
+     *              The getServer() this user belongs to
      * @return
      *        The date in the formate of "yyyy/MM/dd HH:mm:ss"
      */
@@ -1069,7 +1081,7 @@ public class Player extends IOClient implements CommandExecutor {
             return;
         if ((old != null && old.isOP && !newgroup.isOP) || (old != null && !old.isOP && newgroup.isOP) || old == null) {
             Packet p = pm.getPacket((byte)0x0f);
-            p.Write(this, server);
+            p.Write(this, getServer());
         }
         updateAllLists();
     }
@@ -1078,9 +1090,9 @@ public class Player extends IOClient implements CommandExecutor {
      * Change this player in all ext player's lists.
      */
     private void updateAllLists() {
-        for (Player p : server.players) {
+        for (Player p : getServer().getPlayers()) {
             if (p.hasExtension("ExtAddPlayerName"))
-                pm.getPacket((byte)0x33).Write(p, server, this);
+                pm.getPacket((byte)0x33).Write(p, getServer(), this);
         }
     }
 
@@ -1100,27 +1112,27 @@ public class Player extends IOClient implements CommandExecutor {
             kick("Hack Client detected!");
             return;
         }
-        PlayerBlockChangeEvent event = new PlayerBlockChangeEvent(this, X, Y, Z, Block.getBlock(holding), level, pm.server, type);
-        pm.server.getEventSystem().callEvent(event);
+        PlayerBlockChangeEvent event = new PlayerBlockChangeEvent(this, X, Y, Z, Block.getBlock(holding), level, getServer(), type);
+        getServer().getEventSystem().callEvent(event);
         if (event.isCancelled()) {
             sendBlockChange(X, Y, Z, getOrginal);
             return;
         }
         Block place = event.getBlock();
         if (type == PlaceMode.PLACE)
-            GlobalBlockChange(X, Y, Z, place, level, pm.server);
+            GlobalBlockChange(X, Y, Z, place, level, getServer());
         else if (type == PlaceMode.BREAK)
-            GlobalBlockChange(X, Y, Z, Block.getBlock((byte)0), level, pm.server);
+            GlobalBlockChange(X, Y, Z, Block.getBlock((byte)0), level, getServer());
     }
 
     /**
-     * Send a block update to all the players on level "l" in server "s"
+     * Send a block update to all the players on level "l" in getServer() "s"
      * @param X The X pos of the udpate
      * @param Y The Y pos of the update
      * @param Z The Z pos of the update
      * @param block The block to send
      * @param l The level the update happened in
-     * @param s The server the update happened in
+     * @param s The getServer() the update happened in
      * @param updateLevel Weather the level should be updated
      */
     public static void GlobalBlockChange(short X, short Y, short Z, Block block, Level l, Server s, boolean updateLevel) {
@@ -1130,21 +1142,21 @@ public class Player extends IOClient implements CommandExecutor {
             return;
         //Do this way to save on packet overhead
         Packet sb = s.getPacketManager().getPacket((byte)0x05);
-        for (int i = 0; i < s.players.size(); i++) {
-            final Player p = s.players.get(i);
+        for (int i = 0; i < s.getPlayers().size(); i++) {
+            final Player p = s.getPlayers().get(i);
             if (p.level == l)
                 sb.Write(p, s, X, Y, Z, block.getVisibleBlock());
         }
     }
 
     /**
-     * Update a list of blocks for the level <b>l</b> in the server <b>s</b>
+     * Update a list of blocks for the level <b>l</b> in the getServer() <b>s</b>
      * @param blockupdates
      *                    The array of block updates to do
      * @param l
      *         The level.
      * @param s
-     *         The server
+     *         The getServer()
      * @param updateLevel
      *                  Weather the level should be updated
      */
@@ -1152,7 +1164,7 @@ public class Player extends IOClient implements CommandExecutor {
         final SetBlock sb = (SetBlock)s.getPacketManager().getPacket((byte)0x05);
         ArrayList<byte[]> cache = new ArrayList<byte[]>();
         for (BlockUpdate b : blockupdates) {
-            for (Player p : s.players) {
+            for (Player p : s.getPlayers()) {
                 if (p.getLevel() == l)
                     cache.add(sb.getBytes(p, s, (short)b.getX(), (short)b.getY(), (short)b.getZ(), b.getBlock().getVisibleBlock()));
             }
@@ -1160,8 +1172,8 @@ public class Player extends IOClient implements CommandExecutor {
                 l.setTile(b.getBlock(), b.getX(), b.getY(), b.getZ(), s);
         }
 
-        for (int pi = 0; pi < s.players.size(); pi++) {
-            final Player p = s.players.get(pi);
+        for (int pi = 0; pi < s.getPlayers().size(); pi++) {
+            final Player p = s.getPlayers().get(pi);
             for (int i = 0; i < cache.size(); i++) {
                 if (p.getLevel() != l)
                     continue;
@@ -1177,13 +1189,13 @@ public class Player extends IOClient implements CommandExecutor {
     }
 
     /**
-     * Update a list of blocks for the level <b>l</b> in the server <b>s</b>
+     * Update a list of blocks for the level <b>l</b> in the getServer() <b>s</b>
      * @param blockupdates
      *                    The array of block updates to do
      * @param l
      *         The level.
      * @param s
-     *         The server
+     *         The getServer()
      */
     public static void GlobalBlockChange(BlockUpdate[] blockupdates, Level l, Server s) {
         GlobalBlockChange(blockupdates, l, s, true);
@@ -1197,17 +1209,17 @@ public class Player extends IOClient implements CommandExecutor {
      * @param block The block to send
      */
     public void sendBlockChange(short X, short Y, short Z, Block block) {
-        server.getPacketManager().getPacket((byte)0x05).Write(this, server, X, Y, Z, block.getVisibleBlock());
+        getServer().getPacketManager().getPacket((byte)0x05).Write(this, getServer(), X, Y, Z, block.getVisibleBlock());
     }
 
     /**
-     * Send a block update to all the players on level "l" in server "s"
+     * Send a block update to all the players on level "l" in getServer() "s"
      * @param X The X pos of the udpate
      * @param Y The Y pos of the update
      * @param Z The Z pos of the update
      * @param block The block to send
      * @param l The level the update happened in
-     * @param s The server the update happened in
+     * @param s The getServer() the update happened in
      */
     public static void GlobalBlockChange(short X, short Y, short Z, Block block, Level l, Server s) {
         GlobalBlockChange(X, Y, Z, block, l, s, true);
@@ -1233,7 +1245,7 @@ public class Player extends IOClient implements CommandExecutor {
      * @param bottomline The bottom line of the MoTD screen
      */
     public void sendMoTD(String topline, String bottomline) {
-        pm.getPacket("MOTD").Write(this, pm.server, topline, bottomline);
+        pm.getPacket("MOTD").Write(this, getServer(), topline, bottomline);
     }
 
     public void updatePos() throws IOException {
@@ -1247,7 +1259,7 @@ public class Player extends IOClient implements CommandExecutor {
             tosend = t.toSend(this);
         else
             tosend = gps.toSend(this);
-        for (Player p : pm.server.players) {
+        for (Player p : getServer().getPlayers()) {
             if (p == this)
                 continue;
             if (p.level == level)
@@ -1262,9 +1274,9 @@ public class Player extends IOClient implements CommandExecutor {
     public void spawnPlayer(Player p) {
         if (seeable.contains(p))
             return;
-        pm.getPacket((byte)0x07).Write(this, server, p);
+        pm.getPacket((byte)0x07).Write(this, getServer(), p);
         if (this.hasExtension("ExtPlayer") && p.client == ClientType.Extend_Classic)
-            pm.getPacket((byte)0x39).Write(this, server, p);
+            pm.getPacket((byte)0x39).Write(this, getServer(), p);
         seeable.add(p);
     }
 
@@ -1284,7 +1296,7 @@ public class Player extends IOClient implements CommandExecutor {
         if (this.level == level)
             return;
         this.level = level;
-        server.Log(username + " moved to " + level.name);
+        getServer().Log(username + " moved to " + level.name);
         levelsender = new SendLevel(this);
         levelsender.start();
     }
@@ -1311,18 +1323,18 @@ public class Player extends IOClient implements CommandExecutor {
 
 
     protected void SendWelcome() {
-        pm.getPacket("Welcome").Write(this, pm.server);
+        pm.getPacket("Welcome").Write(this, getServer());
     }
 
     /**
-     * Kick the player from the server
+     * Kick the player from the getServer()
      * @param reason The reason why he was kicked
      */
     public void kick(String reason) {
         PlayerKickedEvent pke = new PlayerKickedEvent(this, reason);
-        server.getEventSystem().callEvent(pke);
+        getServer().getEventSystem().callEvent(pke);
         if (pke.isCancelled()) {
-            server.Log(username + " kicking has been canceled by a plugin!");
+            getServer().Log(username + " kicking has been canceled by a plugin!");
             return;
         }
         if (reason.equals(""))
@@ -1345,8 +1357,8 @@ public class Player extends IOClient implements CommandExecutor {
         }
         Packet p = pm.getPacket("Kick");
         this.kickreason = reason;
-        server.players.remove(this);
-        p.Write(this, pm.server);
+        getServer().getPlayers().remove(this);
+        p.Write(this, getServer());
     }
 
     private byte getFreeID() {
@@ -1354,7 +1366,7 @@ public class Player extends IOClient implements CommandExecutor {
         byte toreturn = 0;
         for (int i = 0; i < 255; i++) {
             found = true;
-            for (Player p : pm.server.players) {
+            for (Player p : getServer().getPlayers()) {
                 if (p.ID == i) {
                     found = false;
                     break;
@@ -1484,9 +1496,9 @@ public class Player extends IOClient implements CommandExecutor {
 
     protected void TP() {
         Packet p = pm.getPacket("TP");
-        for (Player pp : pm.server.players) {
+        for (Player pp : getServer().getPlayers()) {
             if (pp.level == level)
-                p.Write(pp, pp.pm.server, this, ID); //Tell all the other players as well...
+                p.Write(pp, pp.getServer(), this, ID); //Tell all the other players as well...
         }
     }
 
@@ -1499,13 +1511,15 @@ public class Player extends IOClient implements CommandExecutor {
      */
     @Override
     public void sendMessage(String message){
-    	char c = message.charAt(0);
-    	message = (c == '&' || c == '%') ? message : server.defaultColor + message;
+        if (!message.equals("") && message.length() > 0) {
+            char c = message.charAt(0);
+            message = (c == '&' || c == '%') ? message : getServer().defaultColor + message;
+        }
         Packet p = pm.getPacket("Message");
         String[] messages = chat.split(message);
         for (String m : messages) {
             this.message = m;
-            p.Write(this, pm.server);
+            p.Write(this, getServer());
         }
     }
     /**
@@ -1558,7 +1572,7 @@ public class Player extends IOClient implements CommandExecutor {
             setPos((short)((0.5 + level.spawnx) * 32), (short)((1 + level.spawny) * 32), (short)((0.5 + level.spawnz) * 32));
             completeSpawn();
             PlayerJoinedLevel event = new PlayerJoinedLevel(this, this.level);
-            server.getEventSystem().callEvent(event);
+            getServer().getEventSystem().callEvent(event);
         }
         else {
             Thread aynct = new asyncLevel(level);
@@ -1579,13 +1593,13 @@ public class Player extends IOClient implements CommandExecutor {
     {
         message = message.substring(1); //Get rid of the / at the beginning
         if (message.split("\\ ").length > 1)
-            server.getCommandHandler().execute(this, message.split("\\ ")[0], message.substring(message.indexOf(message.split("\\ ")[1])));
+            getServer().getCommandHandler().execute(this, message.split("\\ ")[0], message.substring(message.indexOf(message.split("\\ ")[1])));
         else
-            server.getCommandHandler().execute(this, message, "");
+            getServer().getCommandHandler().execute(this, message, "");
     }
 
     /**
-     * Handles the messages a player sends to the server, could be used in the future for run command as player
+     * Handles the messages a player sends to the getServer(), could be used in the future for run command as player
      * 
      * @param message
      * @return void
@@ -1603,7 +1617,7 @@ public class Player extends IOClient implements CommandExecutor {
                 return;
             }
             PlayerCommandEvent event = new PlayerCommandEvent(this, message);
-            pm.server.getEventSystem().callEvent(event);
+            getServer().getEventSystem().callEvent(event);
             if (event.isCancelled())
                 return;
             processCommand(message);
@@ -1613,22 +1627,12 @@ public class Player extends IOClient implements CommandExecutor {
                 formattedMessage = ChatColor.convertColorCodes(message);
 
             PlayerChatEvent event = new PlayerChatEvent(this, message);
-            pm.server.getEventSystem().callEvent(event);
+            getServer().getEventSystem().callEvent(event);
             if (event.isCancelled())
                 return;
-            pm.server.Log("User "+ this.username + " sent: " + message);
+            getServer().Log("User "+ this.username + " sent: " + message);
             chat.serverBroadcast(this.getDisplayName() + ChatColor.White + ": " + formattedMessage);
         }
-    }
-
-    /**
-     * Get the current server object the player is in
-     * @return
-     *        The server
-     */
-    @Override
-    public Server getServer() {
-        return server;
     }
 
     /**
@@ -1638,9 +1642,9 @@ public class Player extends IOClient implements CommandExecutor {
     public void despawn(Player p) {
         if (!seeable.contains(p))
             return;
-        pm.getPacket((byte)0x0c).Write(this, pm.server, p.ID);
+        pm.getPacket((byte)0x0c).Write(this, getServer(), p.ID);
         if (p.hasExtension("ExtRemovePlayerName"))
-            pm.getPacket((byte)0x35).Write(p, server, this);
+            pm.getPacket((byte)0x35).Write(p, getServer(), this);
         seeable.remove(p);
     }
 
@@ -1650,16 +1654,17 @@ public class Player extends IOClient implements CommandExecutor {
      */
     @Override
     public void closeConnection() {
-        if (pm.server.players.contains(this))
-            pm.server.players.remove(this);
+        //TODO Remove support for players
+        if (getServer().players.contains(this))
+            getServer().players.remove(this);
         if(this.username != null)
         {
-            pm.server.Log(this.username + " has left the server.");
+            getServer().Log(this.username + " has left the server.");
             chat.serverBroadcast(this.username + " has left the server.");        
         }
         despawn();
         PlayerDisconnectEvent event = new PlayerDisconnectEvent(this);
-        server.getEventSystem().callEvent(event);
+        getServer().getEventSystem().callEvent(event);
         super.closeConnection();
         //Clear up data
         extra.clear();
@@ -1669,7 +1674,7 @@ public class Player extends IOClient implements CommandExecutor {
         color = null;
         client = null;
 
-        pm.server.Remove(tick); //Do this last as this takes a while to remove
+        getServer().Remove(tick); //Do this last as this takes a while to remove
     }
 
     protected void finishLevel() {
@@ -1684,7 +1689,7 @@ public class Player extends IOClient implements CommandExecutor {
         public void tick() {
             Packet pa;
             pa = pm.getPacket((byte)0x01);
-            pa.Write(p, pm.server);
+            pa.Write(p, getServer());
             pa = null;
             try {
                 Thread.sleep(500);
@@ -1714,17 +1719,17 @@ public class Player extends IOClient implements CommandExecutor {
             long startTime = System.nanoTime();
             Packet pa;
             pa = pm.getPacket((byte)0x02);
-            pa.Write(p, pm.server);
+            pa.Write(p, getServer());
             pa = null;
             pa = pm.getPacket((byte)0x03);
-            pa.Write(p, pm.server);
+            pa.Write(p, getServer());
             pa = null;
             pa = pm.getPacket((byte)0x04);
-            pa.Write(p, pm.server);
+            pa.Write(p, getServer());
             pa = null;
             long endTime = System.nanoTime();
             long duration = endTime - startTime;
-            server.Log("Loading took: " + duration + "ms");
+            getServer().Log("Loading took: " + duration + "ms");
             p.finishLevel();
         }
     }

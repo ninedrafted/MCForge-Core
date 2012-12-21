@@ -10,6 +10,7 @@ package net.mcforge.server;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import net.mcforge.chat.ChatColor;
 import net.mcforge.chat.Messages;
 import net.mcforge.groups.Group;
 import net.mcforge.iomodel.Player;
+import net.mcforge.networking.IOClient;
 import net.mcforge.networking.packets.PacketManager;
 import net.mcforge.sql.ISQL;
 import net.mcforge.sql.MySQL;
@@ -62,6 +64,9 @@ public final class Server implements LogInterface, Updatable {
     private ISQL sql;
     private Console console;
     private Messages m;
+    private int oldsize;
+    private ArrayList<IOClient> cache;
+    private ArrayList<Player> pcache;
     public static final String[] devs = new String []{"Dmitchell", "501st_commander", "Lavoaster", "Alem_Zupa", "bemacized", "Shade2010", "edh649", "hypereddie10", "Gamemakergm", "Serado", "Wouto1997", "cazzar", "givo"};
     /**
      * The name for currency on this server.
@@ -77,7 +82,9 @@ public final class Server implements LogInterface, Updatable {
     public boolean VerifyNames;
     /**
      * The players currently on the server
+     * @deprecated Use {@link Server#getPlayers()}
      */
+    @Deprecated
     public ArrayList<Player> players = new ArrayList<Player>();
     /**
      * Weather the server is running or not
@@ -213,6 +220,10 @@ public final class Server implements LogInterface, Updatable {
      */
     public final ISQL getSQL() {
         return sql;
+    }
+    
+    public final PrintWriter getLoggerOutput() {
+        return getLogger().getWriter();
     }
     /**
      * Get the properties for {@link Server#configpath} file
@@ -410,6 +421,7 @@ public final class Server implements LogInterface, Updatable {
         console.setServer(this);
         startEvents();
         startLogger();
+        Log("=============================");
         Log("Starting MCForge v" + VERSION);
         ch = new CommandHandler(this);
         FileUtils.createFilesAndDirs();
@@ -466,6 +478,33 @@ public final class Server implements LogInterface, Updatable {
         Log("Server url can be found in 'url.txt'");
         ServerStartedEvent sse = new ServerStartedEvent(this);
         es.callEvent(sse);
+    }
+    
+    /**
+     * Get all the {@link IOClient} connected to the server
+     * @return
+     *        An {@link ArrayList} of {@link IOClient}
+     */
+    public ArrayList<IOClient> getClients() {
+        return pm.getConnectedClients();
+    }
+    
+    /**
+     * Get all the {@link Player} connected to the server
+     * @return
+     *         An {@link ArrayList} of {@link Player}
+     */
+    public ArrayList<Player> getPlayers() {
+        if (getClients().equals(cache) && getClients().size() == oldsize)
+            return pcache;
+        pcache = new ArrayList<Player>();
+        for (IOClient i : getClients()) {
+            if (i instanceof Player)
+                pcache.add((Player)i);
+        }
+        cache = getClients();
+        oldsize = cache.size();
+        return pcache;
     }
     
     /**
